@@ -1,0 +1,5 @@
+=== CHANGELOG v20260718_065356 ===
+Time: 2026-07-18T06:53:56.597350+00:00
+Fingerprint: a2466f7ba430e49c5a5b2021fac6cc68...
+
+[INIT] Dataset ban đầu: 2757 ảnh

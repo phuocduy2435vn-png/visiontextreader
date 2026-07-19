@@ -1,0 +1,47 @@
+=== TỔNG QUAN SPLIT ===
+Split,Tổng ảnh,Tổng label,Tổng annotation,TB annotation/ảnh,Max annotation,Min annotation,Label rỗng,Ảnh không có label,Label không có ảnh,TB Width ảnh,TB Height ảnh,TB Width bbox,TB Height bbox,TB Area bbox,TB Aspect Ratio,Tổng dung lượng (MB),TB dung lượng (MB)
+train,27557,27557,27585,1.00,3,1,0,0,0,89,55,0.9982,0.9960,0.995501,1.0156,115.30,0.0042
+TOTAL,27557,27557,27585,1.00,,,,,,89,55,0.9982,0.9960,0.995501,1.0156,115.30,
+
+
+=== PHÂN BỐ CLASS ===
+Split,Class ID,Class Name,Số lượng,Tỷ lệ (%)
+train,0,text,27585,100.0
+
+
+=== PHÂN BỐ ĐỘ PHÂN GIẢI ===
+Split,Nhóm,Số lượng,Tỷ lệ (%)
+train,large (2-5 MP),5,0.0
+train,medium (0.5-2 MP),36,0.1
+train,small (0.1-0.5 MP),550,2.0
+train,tiny (<0.1 MP),26966,97.9
+
+
+=== PHÂN BỐ BOUNDING BOX WIDTH ===
+Split,Khoảng,Số lượng
+train,0-0.1,0
+train,0.1-0.2,3
+train,0.2-0.3,5
+train,0.3-0.5,11
+train,0.5-0.7,55
+train,0.7-1.0,27511
+
+
+=== PHÂN BỐ BOUNDING BOX HEIGHT ===
+Split,Khoảng,Số lượng
+train,0-0.1,19
+train,0.1-0.2,41
+train,0.2-0.3,35
+train,0.3-0.5,39
+train,0.5-0.7,16
+train,0.7-1.0,27435
+
+
+=== PHÂN BỐ BOUNDING BOX AREA ===
+Split,Khoảng,Số lượng
+train,0-0.01,0
+train,0.01-0.05,16
+train,0.05-0.1,32
+train,0.1-0.2,47
+train,0.2-0.5,51
+train,0.5-1.0,27439

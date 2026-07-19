@@ -1,0 +1,13 @@
+train: ../train/images
+val: ../valid/images
+test: ../test/images
+
+nc: 1
+names: ['table']
+
+roboflow:
+  workspace: pguy
+  project: icdar-2013-nik8v
+  version: 1
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/pguy/icdar-2013-nik8v/dataset/1
