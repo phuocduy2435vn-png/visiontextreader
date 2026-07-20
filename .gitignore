@@ -1,0 +1,35 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Training artifacts
+runs/
+*.pt
+*.onnx
+*.tflite
+*.engine
+
+# Cache
+*.cache
+.validator_cache/
+
+# Temporary outputs
+output/
+outputs/
+
+# Logs
+*.log

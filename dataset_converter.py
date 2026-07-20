@@ -12,7 +12,6 @@ import logging
 import shutil
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
 import cv2
 
@@ -20,27 +19,13 @@ logger = logging.getLogger("visiontextreader.dataset_converter")
 
 
 class DatasetConverter:
-    """Convert various annotation formats to YOLO format.
+    """Convert various annotation formats to YOLO format."""
 
-    Supported input formats:
-        - coco_json: COCO-style JSON annotations
-        - yolo_txt: Existing YOLO format (copy through)
-        - icdar_xml: Pascal VOC / ICDAR XML
-        - txt_xywh: Class x y w h (absolute pixels)
-        - txt_xyxy: Class x1 y1 x2 y2 (absolute pixels)
-    """
-
-    def __init__(self, output_dir: Path, class_names: Optional[Dict[int, str]] = None):
-        """Initialize converter.
-
-        Args:
-            output_dir: Output directory for YOLO dataset.
-            class_names: Mapping of class_id to class_name.
-        """
+    def __init__(self, output_dir: Path, class_names: dict[int, str] | None = None):
         self.output_dir = Path(output_dir)
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.class_names = class_names or {0: "text"}
-        self._class_map: Dict[str, int] = {name: idx for idx, name in self.class_names.items()}
+        self._class_map: dict[str, int] = {name: idx for idx, name in self.class_names.items()}
 
     def convert_coco_json(
         self,
@@ -48,25 +33,13 @@ class DatasetConverter:
         image_dir: Path,
         output_split: str = "train",
     ) -> int:
-        """Convert COCO JSON annotations to YOLO format.
-
-        Args:
-            json_path: Path to COCO JSON annotation file.
-            image_dir: Directory containing images.
-            output_split: Output split name (train/val/test).
-
-        Returns:
-            Number of annotations converted.
-        """
+        """Convert COCO JSON annotations to YOLO format. Returns annotation count."""
         logger.info("Converting COCO JSON: %s", json_path)
         with open(json_path, "r", encoding="utf-8") as f:
             coco = json.load(f)
 
-        # Build image lookup
         images = {img["id"]: img for img in coco.get("images", [])}
-
-        # Group annotations by image
-        ann_by_image: Dict[int, List[dict]] = {}
+        ann_by_image: dict[int, list[dict]] = {}
         for ann in coco.get("annotations", []):
             img_id = ann.get("image_id")
             if img_id is not None:
@@ -91,13 +64,11 @@ class DatasetConverter:
                     continue
                 img_h, img_w = img.shape[:2]
 
-            # Copy image
             dst_img = out_img_dir / img_path.name
             if not dst_img.exists():
                 shutil.copy2(img_path, dst_img)
 
-            # Convert annotations
-            lbl_lines = []
+            lbl_lines: list[str] = []
             for ann in ann_by_image.get(img_id, []):
                 bbox = ann.get("bbox", [])
                 if len(bbox) != 4:
@@ -106,32 +77,22 @@ class DatasetConverter:
                 if w <= 0 or h <= 0:
                     continue
 
-                # COCO category_id to class name
                 cat_id = ann.get("category_id", 0)
-                cat_name = "text"  # Default
+                cat_name = "text"
                 for cat in coco.get("categories", []):
                     if cat["id"] == cat_id:
                         cat_name = cat.get("name", "text")
                         break
 
                 class_id = self._class_map.get(cat_name, 0)
-
-                # Normalize to YOLO format
-                cx = (x + w / 2) / img_w
-                cy = (y + h / 2) / img_h
-                nw = w / img_w
-                nh = h / img_h
-
-                # Clamp
-                cx = max(0.0, min(1.0, cx))
-                cy = max(0.0, min(1.0, cy))
-                nw = max(0.0, min(1.0, nw))
-                nh = max(0.0, min(1.0, nh))
+                cx = max(0.0, min(1.0, (x + w / 2) / img_w))
+                cy = max(0.0, min(1.0, (y + h / 2) / img_h))
+                nw = max(0.0, min(1.0, w / img_w))
+                nh = max(0.0, min(1.0, h / img_h))
 
                 lbl_lines.append(f"{class_id} {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}")
                 count += 1
 
-            # Write label
             lbl_path = out_lbl_dir / f"{img_path.stem}.txt"
             lbl_path.write_text("\n".join(lbl_lines), encoding="utf-8")
 
@@ -144,16 +105,7 @@ class DatasetConverter:
         source_labels: Path,
         output_split: str = "train",
     ) -> int:
-        """Copy through existing YOLO format dataset.
-
-        Args:
-            source_images: Directory with source images.
-            source_labels: Directory with source YOLO labels.
-            output_split: Output split name.
-
-        Returns:
-            Number of annotations converted.
-        """
+        """Copy through existing YOLO format dataset. Returns annotation count."""
         logger.info("Copying YOLO format: %s", source_images)
         out_img_dir = self.output_dir / output_split / "images"
         out_lbl_dir = self.output_dir / output_split / "labels"
@@ -166,17 +118,14 @@ class DatasetConverter:
                 continue
             lbl_path = source_labels / f"{img_path.stem}.txt"
 
-            # Copy image
             dst_img = out_img_dir / img_path.name
             if not dst_img.exists():
                 shutil.copy2(img_path, dst_img)
 
-            # Copy label if exists
             if lbl_path.exists():
                 dst_lbl = out_lbl_dir / lbl_path.name
                 if not dst_lbl.exists():
                     shutil.copy2(lbl_path, dst_lbl)
-                # Count annotations
                 try:
                     content = lbl_path.read_text(encoding="utf-8").strip()
                     if content:
@@ -193,16 +142,7 @@ class DatasetConverter:
         image_dir: Path,
         output_split: str = "train",
     ) -> int:
-        """Convert Pascal VOC / ICDAR XML annotations to YOLO format.
-
-        Args:
-            xml_dir: Directory with XML annotation files.
-            image_dir: Directory with images.
-            output_split: Output split name.
-
-        Returns:
-            Number of annotations converted.
-        """
+        """Convert Pascal VOC / ICDAR XML annotations to YOLO format."""
         logger.info("Converting ICDAR XML: %s", xml_dir)
         out_img_dir = self.output_dir / output_split / "images"
         out_lbl_dir = self.output_dir / output_split / "labels"
@@ -215,7 +155,6 @@ class DatasetConverter:
                 tree = ET.parse(xml_path)
                 root = tree.getroot()
 
-                # Get image info
                 filename = root.findtext("filename", "")
                 size = root.find("size")
                 if size is None:
@@ -225,15 +164,13 @@ class DatasetConverter:
                 if img_w <= 0 or img_h <= 0:
                     continue
 
-                # Copy image
                 img_path = image_dir / filename
                 if img_path.exists():
                     dst_img = out_img_dir / img_path.name
                     if not dst_img.exists():
                         shutil.copy2(img_path, dst_img)
 
-                # Convert objects
-                lbl_lines = []
+                lbl_lines: list[str] = []
                 for obj in root.findall("object"):
                     name = obj.findtext("name", "text")
                     class_id = self._class_map.get(name, 0)
@@ -246,20 +183,14 @@ class DatasetConverter:
                     xmax = float(bndbox.findtext("xmax", "0"))
                     ymax = float(bndbox.findtext("ymax", "0"))
 
-                    cx = ((xmin + xmax) / 2) / img_w
-                    cy = ((ymin + ymax) / 2) / img_h
-                    w = (xmax - xmin) / img_w
-                    h = (ymax - ymin) / img_h
-
-                    cx = max(0.0, min(1.0, cx))
-                    cy = max(0.0, min(1.0, cy))
-                    w = max(0.0, min(1.0, w))
-                    h = max(0.0, min(1.0, h))
+                    cx = max(0.0, min(1.0, ((xmin + xmax) / 2) / img_w))
+                    cy = max(0.0, min(1.0, ((ymin + ymax) / 2) / img_h))
+                    w = max(0.0, min(1.0, (xmax - xmin) / img_w))
+                    h = max(0.0, min(1.0, (ymax - ymin) / img_h))
 
                     lbl_lines.append(f"{class_id} {cx:.6f} {cy:.6f} {w:.6f} {h:.6f}")
                     count += 1
 
-                # Write label
                 lbl_path = out_lbl_dir / f"{xml_path.stem}.txt"
                 lbl_path.write_text("\n".join(lbl_lines), encoding="utf-8")
 
@@ -276,20 +207,9 @@ class DatasetConverter:
         output_split: str = "train",
         format: str = "xywh",
     ) -> int:
-        """Convert TXT file with absolute coordinates to YOLO format.
+        """Convert TXT with absolute coordinates to YOLO format.
 
-        Expected line format:
-            class_name x y w h    (xywh format)
-            class_name x1 y1 x2 y2 (xyxy format)
-
-        Args:
-            txt_path: Path to annotation TXT file.
-            image_dir: Directory with images.
-            output_split: Output split name.
-            format: 'xywh' or 'xyxy'.
-
-        Returns:
-            Number of annotations converted.
+        Line format: class_name x y w h (xywh) or class_name x1 y1 x2 y2 (xyxy).
         """
         logger.info("Converting TXT absolute: %s", txt_path)
         out_img_dir = self.output_dir / output_split / "images"
@@ -298,8 +218,9 @@ class DatasetConverter:
         out_lbl_dir.mkdir(parents=True, exist_ok=True)
 
         count = 0
-        current_img = None
-        lbl_lines: List[str] = []
+        current_img: str | None = None
+        lbl_lines: list[str] = []
+        img_dims: dict[str, tuple[int, int]] = {}
 
         for line in txt_path.read_text(encoding="utf-8").splitlines():
             line = line.strip()
@@ -308,21 +229,18 @@ class DatasetConverter:
 
             parts = line.split()
             if len(parts) == 1:
-                # Image filename line
                 if current_img and lbl_lines:
                     lbl_path = out_lbl_dir / f"{Path(current_img).stem}.txt"
                     lbl_path.write_text("\n".join(lbl_lines), encoding="utf-8")
                 current_img = parts[0]
                 lbl_lines = []
 
-                # Copy image
                 img_path = image_dir / current_img
                 if img_path.exists():
                     dst_img = out_img_dir / img_path.name
                     if not dst_img.exists():
                         shutil.copy2(img_path, dst_img)
             elif len(parts) >= 5:
-                # Annotation line: class x y w h
                 class_name = parts[0]
                 class_id = self._class_map.get(class_name, 0)
 
@@ -334,37 +252,33 @@ class DatasetConverter:
                 if current_img is None:
                     continue
 
-                # Get image dimensions
-                img_path = image_dir / current_img
-                if not img_path.exists():
-                    continue
-                img = cv2.imread(str(img_path))
-                if img is None:
-                    continue
-                img_h, img_w = img.shape[:2]
+                if current_img not in img_dims:
+                    img_path = image_dir / current_img
+                    if not img_path.exists():
+                        continue
+                    img = cv2.imread(str(img_path))
+                    if img is None:
+                        continue
+                    img_dims[current_img] = (img.shape[1], img.shape[0])
+
+                img_w, img_h = img_dims[current_img]
 
                 if format == "xywh":
                     x, y, w, h = coords
-                    cx = (x + w / 2) / img_w
-                    cy = (y + h / 2) / img_h
-                    nw = w / img_w
-                    nh = h / img_h
-                else:  # xyxy
+                    cx = max(0.0, min(1.0, (x + w / 2) / img_w))
+                    cy = max(0.0, min(1.0, (y + h / 2) / img_h))
+                    nw = max(0.0, min(1.0, w / img_w))
+                    nh = max(0.0, min(1.0, h / img_h))
+                else:
                     x1, y1, x2, y2 = coords
-                    cx = ((x1 + x2) / 2) / img_w
-                    cy = ((y1 + y2) / 2) / img_h
-                    nw = (x2 - x1) / img_w
-                    nh = (y2 - y1) / img_h
-
-                cx = max(0.0, min(1.0, cx))
-                cy = max(0.0, min(1.0, cy))
-                nw = max(0.0, min(1.0, nw))
-                nh = max(0.0, min(1.0, nh))
+                    cx = max(0.0, min(1.0, ((x1 + x2) / 2) / img_w))
+                    cy = max(0.0, min(1.0, ((y1 + y2) / 2) / img_h))
+                    nw = max(0.0, min(1.0, (x2 - x1) / img_w))
+                    nh = max(0.0, min(1.0, (y2 - y1) / img_h))
 
                 lbl_lines.append(f"{class_id} {cx:.6f} {cy:.6f} {nw:.6f} {nh:.6f}")
                 count += 1
 
-        # Write last label
         if current_img and lbl_lines:
             lbl_path = out_lbl_dir / f"{Path(current_img).stem}.txt"
             lbl_path.write_text("\n".join(lbl_lines), encoding="utf-8")
@@ -372,22 +286,12 @@ class DatasetConverter:
         logger.info("Converted %d annotations from TXT", count)
         return count
 
-    def create_data_yaml(self, split_ratios: Optional[Dict[str, float]] = None) -> Path:
-        """Create YOLO data.yaml configuration file.
-
-        Args:
-            split_ratios: Optional split ratios (not used, just for reference).
-
-        Returns:
-            Path to created data.yaml.
-        """
+    def create_data_yaml(self) -> Path:
+        """Create YOLO data.yaml configuration file."""
         yaml_content = f"""# VisionTextReader YOLO Dataset Configuration
-# Auto-generated by dataset_converter.py
-
 train: {self.output_dir}/train/images
 val: {self.output_dir}/val/images
 test: {self.output_dir}/test/images
-
 nc: {len(self.class_names)}
 names: {list(self.class_names.values())}
 """

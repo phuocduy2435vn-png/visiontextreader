@@ -1,0 +1,10 @@
+# VisionTextReader — Small Dataset Config (~12K images)
+
+train: datasets/processed_small/train/images
+val: datasets/processed_small/val/images
+test: datasets/processed_small/test/images
+
+nc: 1
+
+names:
+  0: text

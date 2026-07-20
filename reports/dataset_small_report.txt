@@ -1,0 +1,56 @@
+========================================
+VisionTextReader - Dataset Small Report
+========================================
+Seed: 42
+Target: 12,000 images
+Method: hardlink (no data duplication)
+
+--- Split Breakdown ---
+
+Train:
+  Images:  8,400
+  Labels:  8,400
+  Ratio:   70.0%
+
+Val:
+  Images:  2,400
+  Labels:  2,400
+  Ratio:   20.0%
+
+Test:
+  Images:  1,200
+  Labels:  1,200
+  Ratio:   10.0%
+
+--- Totals ---
+
+Total Images:  12,000
+Total Labels:  12,000
+Total Files:   24,000
+
+--- Ratios ---
+
+Train / Val / Test = 8,400 / 2,400 / 1,200
+                    = 70.0% / 20.0% / 10.0%
+
+--- Structure ---
+
+datasets/processed_small/
+  train/
+    images/   (8,400 files)
+    labels/   (8,400 files)
+  val/
+    images/   (2,400 files)
+    labels/   (2,400 files)
+  test/
+    images/   (1,200 files)
+    labels/   (1,200 files)
+
+--- Data Config ---
+
+data_small.yaml:
+  train: datasets/processed_small/train/images
+  val:   datasets/processed_small/val/images
+  test:  datasets/processed_small/test/images
+  nc: 1
+  names: ["text"]

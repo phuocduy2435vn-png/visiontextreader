@@ -10,23 +10,16 @@ import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
 
-import cv2
 import numpy as np
 
-from utils import load_image, save_image, IMAGE_EXTENSIONS
+from utils import load_image, save_image
 
 logger = logging.getLogger("visiontextreader.crop")
 
 
 class TextCropper:
-    """Crop text regions from images.
-
-    Usage:
-        cropper = TextCropper()
-        crops = cropper.crop(image, boxes)
-    """
+    """Crop text regions from images."""
 
     def __init__(
         self,
@@ -35,14 +28,6 @@ class TextCropper:
         min_size: int = 10,
         output_format: str = "png",
     ):
-        """Initialize cropper.
-
-        Args:
-            margin: Margin around bbox in pixels (negative = shrink).
-            padding: Padding around bbox in pixels (positive = expand).
-            min_size: Minimum crop size in pixels (skip smaller).
-            output_format: Output image format (png, jpg).
-        """
         self.margin = margin
         self.padding = padding
         self.min_size = min_size
@@ -51,20 +36,10 @@ class TextCropper:
     def crop(
         self,
         image: str | Path | np.ndarray,
-        boxes: List[List[int]],
-        scores: Optional[List[float]] = None,
-    ) -> List[np.ndarray]:
-        """Crop text regions from image.
-
-        Args:
-            image: Image path or numpy array.
-            boxes: List of [x1, y1, x2, y2] bounding boxes.
-            scores: Optional confidence scores (used for naming).
-
-        Returns:
-            List of cropped image arrays.
-        """
-        # Load image if path
+        boxes: list[list[int]],
+        scores: list[float] | None = None,
+    ) -> list[np.ndarray]:
+        """Crop text regions from image. Returns list of cropped arrays."""
         if isinstance(image, (str, Path)):
             img = load_image(image)
             if img is None:
@@ -73,36 +48,23 @@ class TextCropper:
             img = image
 
         h, w = img.shape[:2]
-        crops: List[np.ndarray] = []
+        crops: list[np.ndarray] = []
 
-        for i, box in enumerate(boxes):
+        for box in boxes:
             x1, y1, x2, y2 = box
+            x1 = max(0, x1 - self.margin + self.padding)
+            y1 = max(0, y1 - self.margin + self.padding)
+            x2 = min(w, x2 + self.margin - self.padding)
+            y2 = min(h, y2 + self.margin - self.padding)
 
-            # Apply margin and padding
-            x1 = x1 - self.margin + self.padding
-            y1 = y1 - self.margin + self.padding
-            x2 = x2 + self.margin - self.padding
-            y2 = y2 + self.margin - self.padding
-
-            # Clamp to image bounds (no crop beyond image)
-            x1 = max(0, x1)
-            y1 = max(0, y1)
-            x2 = min(w, x2)
-            y2 = min(h, y2)
-
-            # Check minimum size
             crop_w = x2 - x1
             crop_h = y2 - y1
             if crop_w < self.min_size or crop_h < self.min_size:
-                logger.debug("Skipping small crop %dx%d", crop_w, crop_h)
                 continue
 
-            # Extract crop (preserve quality)
             crop = img[y1:y2, x1:x2].copy()
-            if crop.size == 0:
-                continue
-
-            crops.append(crop)
+            if crop.size > 0:
+                crops.append(crop)
 
         logger.info("Cropped %d regions from image", len(crops))
         return crops
@@ -110,34 +72,22 @@ class TextCropper:
     def crop_to_files(
         self,
         image: str | Path | np.ndarray,
-        boxes: List[List[int]],
+        boxes: list[list[int]],
         output_dir: str | Path,
         prefix: str = "crop",
-        scores: Optional[List[float]] = None,
-    ) -> List[Path]:
-        """Crop text regions and save to files.
-
-        Args:
-            image: Image path or numpy array.
-            boxes: List of [x1, y1, x2, y2] bounding boxes.
-            output_dir: Directory to save cropped images.
-            prefix: Filename prefix.
-            scores: Optional confidence scores.
-
-        Returns:
-            List of saved file paths.
-        """
+        scores: list[float] | None = None,
+    ) -> list[Path]:
+        """Crop text regions and save to files."""
         output_dir = Path(output_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
 
         crops = self.crop(image, boxes, scores)
-        saved_paths: List[Path] = []
-
+        saved_paths: list[Path] = []
         ext = f".{self.output_format}"
-        for i, crop in enumerate(crops):
-            filename = f"{prefix}_{i + 1:03d}{ext}"
-            output_path = output_dir / filename
-            if save_image(crop, output_path):
+
+        for i, crop_img in enumerate(crops):
+            output_path = output_dir / f"{prefix}_{i + 1:03d}{ext}"
+            if save_image(crop_img, output_path):
                 saved_paths.append(output_path)
 
         logger.info("Saved %d cropped images to %s", len(saved_paths), output_dir)
@@ -146,19 +96,10 @@ class TextCropper:
     def crop_with_metadata(
         self,
         image: str | Path | np.ndarray,
-        boxes: List[List[int]],
-        scores: Optional[List[float]] = None,
-    ) -> List[Dict[str, Any]]:
-        """Crop regions and return with metadata.
-
-        Args:
-            image: Image path or numpy array.
-            boxes: List of [x1, y1, x2, y2] bounding boxes.
-            scores: Optional confidence scores.
-
-        Returns:
-            List of dicts with crop data and metadata.
-        """
+        boxes: list[list[int]],
+        scores: list[float] | None = None,
+    ) -> list[dict]:
+        """Crop regions and return with metadata."""
         if isinstance(image, (str, Path)):
             img = load_image(image)
             if img is None:
@@ -167,12 +108,10 @@ class TextCropper:
             img = image
 
         h, w = img.shape[:2]
-        results: List[Dict[str, Any]] = []
+        results: list[dict] = []
 
         for i, box in enumerate(boxes):
             x1, y1, x2, y2 = box
-
-            # Apply margin and padding
             x1c = max(0, x1 - self.margin + self.padding)
             y1c = max(0, y1 - self.margin + self.padding)
             x2c = min(w, x2 + self.margin - self.padding)
@@ -180,7 +119,6 @@ class TextCropper:
 
             crop_w = x2c - x1c
             crop_h = y2c - y1c
-
             if crop_w < self.min_size or crop_h < self.min_size:
                 continue
 
@@ -189,7 +127,6 @@ class TextCropper:
                 continue
 
             score = scores[i] if scores and i < len(scores) else 0.0
-
             results.append({
                 "crop": crop,
                 "index": i,
@@ -205,47 +142,32 @@ class TextCropper:
     def crop_from_detections(
         self,
         image: str | Path | np.ndarray,
-        detections: List[Dict[str, Any]],
+        detections: list[dict],
         output_dir: str | Path,
         prefix: str = "crop",
-    ) -> List[Path]:
-        """Crop from detection results (output of TextDetector.detect).
-
-        Args:
-            image: Image path or numpy array.
-            detections: List of detection dicts from TextDetector.
-            output_dir: Directory to save cropped images.
-            prefix: Filename prefix.
-
-        Returns:
-            List of saved file paths.
-        """
+    ) -> list[Path]:
+        """Crop from TextDetector.detect() output."""
         boxes = [d["bbox"] for d in detections]
         scores = [d["confidence"] for d in detections]
         return self.crop_to_files(image, boxes, output_dir, prefix, scores)
 
 
 def main() -> None:
-    """CLI entry point for cropping."""
     parser = argparse.ArgumentParser(description="Crop Text Regions from Images")
     parser.add_argument("image", type=str, help="Input image path")
-    parser.add_argument("--boxes", type=str, required=True,
-                        help="JSON file with bounding boxes [[x1,y1,x2,y2], ...]")
-    parser.add_argument("--output", "-o", type=str, default="outputs/crops",
-                        help="Output directory")
+    parser.add_argument("--boxes", type=str, required=True, help="JSON file with bounding boxes")
+    parser.add_argument("--output", "-o", type=str, default="outputs/crops", help="Output directory")
     parser.add_argument("--margin", type=int, default=5, help="Margin in pixels")
     parser.add_argument("--padding", type=int, default=10, help="Padding in pixels")
     parser.add_argument("--min-size", type=int, default=10, help="Minimum crop size")
     parser.add_argument("--format", type=str, default="png", help="Output format")
     args = parser.parse_args()
 
-    # Setup logging
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
     )
 
-    # Load boxes from JSON
     boxes_path = Path(args.boxes)
     if not boxes_path.exists():
         print(f"Error: boxes file not found: {boxes_path}")
@@ -254,7 +176,6 @@ def main() -> None:
     with open(boxes_path, "r", encoding="utf-8") as f:
         boxes_data = json.load(f)
 
-    # Handle different JSON formats
     if isinstance(boxes_data, list):
         if boxes_data and isinstance(boxes_data[0], dict):
             boxes = [d["bbox"] for d in boxes_data]
@@ -266,7 +187,6 @@ def main() -> None:
         print("Error: boxes must be a list")
         return
 
-    # Create cropper
     cropper = TextCropper(
         margin=args.margin,
         padding=args.padding,
@@ -274,16 +194,9 @@ def main() -> None:
         output_format=args.format,
     )
 
-    # Crop
-    image_path = Path(args.image)
-    output_dir = Path(args.output)
-
     saved_paths = cropper.crop_to_files(
-        image_path,
-        boxes,
-        output_dir,
-        prefix=image_path.stem,
-        scores=scores,
+        Path(args.image), boxes, Path(args.output),
+        prefix=Path(args.image).stem, scores=scores,
     )
 
     print(f"\nCropped {len(saved_paths)} regions:")

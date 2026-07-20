@@ -1,7 +1,6 @@
+ultralytics>=8.0.0
+opencv-python>=4.10.0
+numpy>=2.0.0
 Pillow>=11.0.0
 PyYAML>=6.0
-send2trash>=1.8.3
-numpy>=2.0.0
-opencv-python>=4.10.0
 tqdm>=4.67.0
-matplotlib>=3.10.0  
